@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>M & N Vertical Stress Calculator</title>
+  <style>
+    :root { --bg:#f4f6f8; --card:#fff; --ink:#17212b; --muted:#64748b; --accent:#b91c1c; --line:#dbe2ea; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:var(--ink); }
+    .wrap { max-width:850px; margin:48px auto; padding:0 20px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:30px; box-shadow:0 12px 35px rgba(15,23,42,.08); }
+    h1 { margin:0 0 8px; font-size:30px; }
+    .subtitle { color:var(--muted); margin:0 0 28px; line-height:1.5; }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:18px; }
+    label { display:block; font-weight:700; margin-bottom:7px; }
+    input { width:100%; padding:12px 13px; border:1px solid #bfc9d4; border-radius:9px; font-size:16px; }
+    input:focus { outline:2px solid rgba(185,28,28,.18); border-color:var(--accent); }
+    button { margin-top:22px; width:100%; border:0; border-radius:9px; padding:13px 18px; background:var(--accent); color:#fff; font-size:17px; font-weight:700; cursor:pointer; }
+    button:hover { filter:brightness(.93); }
+    .results { display:none; margin-top:26px; padding-top:22px; border-top:1px solid var(--line); }
+    .results h2 { margin:0 0 14px; font-size:22px; }
+    .result-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .result { background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:14px; }
+    .result span { display:block; color:var(--muted); font-size:13px; margin-bottom:5px; }
+    .result strong { font-size:20px; }
+    .formula { margin-top:22px; padding:16px; background:#f8fafc; border-left:4px solid var(--accent); line-height:1.65; overflow-x:auto; }
+    .note { margin-top:18px; color:#475569; font-size:14px; line-height:1.55; }
+    .error { display:none; margin-top:16px; color:#991b1b; font-weight:700; }
+    footer { text-align:center; color:var(--muted); font-size:12px; margin-top:16px; }
+    @media(max-width:620px){ .grid,.result-grid{grid-template-columns:1fr;} .card{padding:22px;} h1{font-size:25px;} }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>M & N Vertical Stress Calculator</h1>
+      <p class="subtitle">Calculates the Boussinesq influence factor <strong>I</strong> and vertical stress increase beneath the <strong>corner</strong> of a uniformly loaded rectangular area.</p>
+
+      <div class="grid">
+        <div><label for="q">Uniform pressure, q</label><input id="q" type="number" step="any" min="0" placeholder="e.g. 4.0"></div>
+        <div><label for="B">Width, B</label><input id="B" type="number" step="any" min="0" placeholder="e.g. 2.5"></div>
+        <div><label for="L">Length, L</label><input id="L" type="number" step="any" min="0" placeholder="e.g. 2.5"></div>
+        <div><label for="z">Depth, z</label><input id="z" type="number" step="any" min="0" placeholder="e.g. 8"></div>
+      </div>
+
+      <button onclick="calculate()">Calculate</button>
+      <div id="error" class="error"></div>
+
+      <div id="results" class="results">
+        <h2>Results</h2>
+        <div class="result-grid">
+          <div class="result"><span>m = B/z</span><strong id="mOut"></strong></div>
+          <div class="result"><span>n = L/z</span><strong id="nOut"></strong></div>
+          <div class="result"><span>Influence factor, I</span><strong id="iOut"></strong></div>
+          <div class="result"><span>Vertical stress increase, Δσ</span><strong id="stressOut"></strong></div>
+        </div>
+        <div class="formula">
+          <strong>Equations used</strong><br>
+          m = B/z &nbsp;&nbsp; (Eq. 6.11)<br>
+          n = L/z &nbsp;&nbsp; (Eq. 6.12)<br>
+          Δσ = qI &nbsp;&nbsp; (Eq. 6.9)<br>
+          I is evaluated from Eq. 6.10 for a rectangular loaded area.
+        </div>
+        <p class="note"><strong>Important:</strong> This calculator returns the influence factor for a point beneath the <strong>corner</strong> of the entered rectangle. For a point beneath the center of a rectangular footing, divide the footing into four rectangles about the center and sum their influence factors.</p>
+      </div>
+    </section>
+    <footer>Foundation Engineering • M & N Method</footer>
+  </main>
+
+<script>
+function calculate() {
+  const q = Number(document.getElementById('q').value);
+  const B = Number(document.getElementById('B').value);
+  const L = Number(document.getElementById('L').value);
+  const z = Number(document.getElementById('z').value);
+  const error = document.getElementById('error');
+  const results = document.getElementById('results');
+
+  if (![q,B,L,z].every(Number.isFinite) || q < 0 || B <= 0 || L <= 0 || z <= 0) {
+    error.textContent = 'Enter valid values: q ≥ 0 and B, L, z > 0.';
+    error.style.display = 'block'; results.style.display = 'none'; return;
+  }
+
+  error.style.display = 'none';
+  const m = B / z;
+  const n = L / z;
+  const root = Math.sqrt(m*m + n*n + 1);
+  const term1 = (2*m*n*root) / (m*m + n*n + m*m*n*n + 1);
+
+  // Eq. 6.10 requires the inverse-tangent angle to be positive.
+  const numerator = 2*m*n*root;
+  const denominator = m*m + n*n + 1 - m*m*n*n;
+  let angle = Math.atan2(numerator, denominator);
+  if (angle < 0) angle += Math.PI;
+
+  const term2 = ((m*m + n*n + 2) / (m*m + n*n + 1)) * angle;
+  const I = (term1 + term2) / (4*Math.PI);
+  const stress = q * I;
+
+  document.getElementById('mOut').textContent = m.toFixed(4);
+  document.getElementById('nOut').textContent = n.toFixed(4);
+  document.getElementById('iOut').textContent = I.toFixed(5);
+  document.getElementById('stressOut').textContent = stress.toFixed(5) + ' (same pressure units as q)';
+  results.style.display = 'block';
+}
+</script>
+</body>
+</html>
